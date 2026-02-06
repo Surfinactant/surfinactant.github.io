@@ -1,0 +1,667 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>마노사바메이커</title> <!--레전드바이브코딩컵-->
+    <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@400;700&display=swap" rel="stylesheet">
+
+    
+    <style>
+        body {
+            margin: 0; padding: 0;
+            background-color: #222; color: white;
+            font-family: 'Noto Serif KR', serif;
+            display: flex; height: 100vh; overflow: hidden;
+            user-select: none;
+        }
+        
+        .preview-area {
+            flex: 1; display: flex; justify-content: center; align-items: center;
+            background-color: #333; padding: 20px;
+        }
+
+        #game-screen {
+            width: 1280px; height: 720px;
+            background-color: #000;
+            position: relative; overflow: hidden;
+            box-shadow: 0 0 20px rgba(0,0,0,0.5);
+        }
+
+        .hidden { display: none !important; }
+
+        #investigation-scene { width: 100%; height: 100%; position: absolute; top:0; left:0; }
+        #inv-bg-layer { position: absolute; width: 100%; height: 100%; z-index: 1; object-fit: cover; }
+        #inv-char-layer {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 2;
+            display: flex; align-items: flex-end; justify-content: center; pointer-events: none;
+        }
+        #inv-char-layer .character {
+            transition: all 0.3s ease; max-height: 90%; filter: brightness(100%); transform: scale(1);
+        }
+        #inv-char-layer .character.dimmed {
+            filter: brightness(50%) blur(1px); transform: scale(0.95); z-index: -1;
+        }
+
+        #inv-ui-layer {
+            position: absolute; bottom: 30px; left: 50%; transform: translateX(-50%);
+            width: 85%; z-index: 10;
+            display: flex; flex-direction: column; align-items: flex-start;
+        }
+        .name-box {
+            font-size: 24px; color: #ffffff; margin-bottom: 5px;
+            text-shadow: 2px 2px 5px rgba(0,0,0,0.8);
+            background: linear-gradient(135deg, rgba(0,0,0,0.6) 0%, rgba(0,0,0,0) 80%);
+            padding: 5px 20px; border-left: 4px solid rgba(255, 255, 255, 0.3);
+            letter-spacing: 0.05em;
+        }
+        .highlight-char { font-size: 32px; line-height: 1; }
+        .inv-dialogue-box {
+            width: 100%; min-height: 150px;
+            background: linear-gradient(to top, rgba(0,0,0,0.9), rgba(0,0,0,0.4));
+            padding: 25px 40px; box-sizing: border-box;
+            border-top: 1px solid rgba(255,255,255,0.2);
+            font-size: 26px; line-height: 1.6; color: #eee;
+            white-space: pre-wrap; text-shadow: 1px 1px 2px black; text-align: left;
+        }
+
+        #interrogation-scene {
+            width: 100%; height: 100%; position: absolute; top:0; left:0;
+            overflow: hidden; background: #111;
+        }
+        #int-tilt-wrapper {
+            width: 100%; height: 100%;
+            position: absolute; top: 0; left: 0;
+            transition: transform 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            transform-origin: center center;
+        }
+        .tilt-left { transform: rotate(-4deg) scale(1.1); }
+        .tilt-right { transform: rotate(4deg) scale(1.1); }
+        .tilt-center { transform: rotate(0deg) scale(1); }
+
+        #int-bg-layer { width: 100%; height: 100%; object-fit: cover; position: absolute; z-index: 1; }
+        #int-char-layer {
+            position: absolute; bottom: 0; width: 100%; height: 100%; z-index: 2;
+            display: flex; align-items: flex-end; pointer-events: none;
+        }
+        .int-character { max-height: 100%; filter: drop-shadow(0 0 10px rgba(0,0,0,0.5)); }
+
+        #int-evidence-layer {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 20;
+            pointer-events: none;
+        }
+        .evidence-img {
+            position: absolute; top: 50px; width: 250px; height: 250px;
+            object-fit: contain; filter: drop-shadow(5px 5px 10px rgba(0,0,0,0.8));
+            border: 3px solid rgba(255,255,255,0.2); background: rgba(0,0,0,0.3);
+        }
+
+        #int-text-layer {
+            position: absolute; 
+            top: 50%; left: 50%; transform: translate(-50%, -50%);
+            z-index: 30;
+            width: auto; height: auto;
+            cursor: move; 
+            pointer-events: auto;
+            
+            display: flex; flex-direction: column; 
+            text-align: left; 
+            align-items: flex-start;
+            
+            min-width: 200px; padding: 10px;
+        }
+        
+        .int-text {
+            font-weight: 700; color: white;
+            text-shadow: -2px -2px 0 #000, 2px -2px 0 #000, -2px 2px 0 #000, 2px 2px 0 #000, 4px 4px 8px rgba(0,0,0,0.9);
+            line-height: 1.3; white-space: pre-wrap;
+        }
+        .text-highlight-red {
+            color: #ff9999;
+            text-shadow: -2px -2px 0 #330000, 2px -2px 0 #330000, -2px 2px 0 #330000, 2px 2px 0 #330000;
+        }
+
+        .toolbox {
+            width: 380px; background-color: #444;
+            display: flex; flex-direction: column;
+            border-left: 1px solid #555;
+            font-family: 'Noto Sans KR', sans-serif;
+        }
+        .tab-menu { display: flex; background: #333; }
+        .tab-btn {
+            flex: 1; padding: 15px; border: none; background: transparent;
+            color: #888; font-weight: bold; cursor: pointer; border-bottom: 3px solid transparent; font-size: 16px;
+        }
+        .tab-btn.active { color: white; border-bottom: 3px solid #E91E63; background: #3a3a3a; }
+        .toolbox-content { padding: 20px; overflow-y: auto; flex: 1; }
+        .control-group { margin-bottom: 25px; background: #3a3a3a; padding: 15px; border-radius: 8px; }
+        label { display: block; margin-bottom: 8px; font-weight: bold; color: #ddd; font-size: 14px;}
+        select, input, textarea, button {
+            width: 100%; padding: 8px; margin-bottom: 8px;
+            background: #222; border: 1px solid #555; color: white;
+            border-radius: 4px; box-sizing: border-box;
+        }
+        input[type=range] { padding: 0; margin-bottom: 5px; cursor: pointer; }
+
+        button.capture-btn { background-color: #E91E63; border: none; font-weight: bold; padding: 15px; font-size: 16px; margin-top: 10px; cursor: pointer; }
+        button.add-btn { background-color: #4CAF50; border: none; cursor: pointer; width: auto; padding: 5px 10px; float: right; font-size: 12px; }
+        button.remove-btn { background-color: #f44336; width: auto; padding: 5px 10px; float: right; }
+        
+        .char-item-ui { border-top: 1px solid #555; padding-top: 10px; margin-top: 10px; }
+        .checkbox-wrapper { display: flex; align-items: center; margin-top: 5px; }
+        .checkbox-wrapper input { width: auto; margin-right: 8px; margin-bottom: 0; }
+        .hint-text { font-size: 12px; color: #aaa; margin-top: 5px; line-height: 1.4; }
+    </style>
+</head>
+<body>
+
+    <div class="preview-area">
+        <div id="game-screen">
+            <div id="investigation-scene">
+                <img id="inv-bg-layer" src="" alt="배경">
+                <div id="inv-char-layer"></div>
+                <div id="inv-ui-layer">
+                    <div class="name-box" id="inv-disp-name"></div>
+                    <div class="inv-dialogue-box" id="inv-disp-text"></div>
+                </div>
+            </div>
+
+            <div id="interrogation-scene" class="hidden">
+                <div id="int-tilt-wrapper" class="tilt-center">
+                    <img id="int-bg-layer" src="" alt="배경">
+                    <div id="int-char-layer">
+                        <img id="int-disp-char" class="int-character" src="" alt="">
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="toolbox">
+        <div class="tab-menu">
+            <button class="tab-btn active" onclick="switchMode('investigation')" id="tab-inv">🔍 조사 파트</button>
+            <button class="tab-btn" onclick="switchMode('interrogation')" id="tab-int">⚖️ 심문 파트</button>
+        </div>
+
+        <div id="toolbox-investigation" class="toolbox-content">
+            <div class="control-group">
+                <label>배경 선택</label>
+                <select id="inv-bg-select" onchange="updateInvestigation()">
+                    <option value="cell_1">감옥</option>
+                    <option value="cell_2">감옥 (간수)</option>
+                    <option value="cell_corridor">감옥 복도</option>
+                    <option value="punish_corridor_1">징벌방 복도</option>
+                    <option value="punish_corridor_2">징벌방 복도 2</option>
+                    <option value="hall">현관</option>
+                    <option value="lounge_1">라운지 1</option>
+                    <option value="lounge_2">라운지 2</option>
+                    <option value="dining">식당</option>
+                    <option value="infirmary_1">의무실 (낮)</option>
+                    <option value="infirmary_2">의무실 (밤)</option>
+                    <option value="trial_corridor_1">재판소 복도 (낮)</option>
+                    <option value="trial_corridor_2">재판소 복도 (밤)</option>
+                    <option value="stair">계단</option>
+                    <option value="entertainment_room">오락실</option>
+                    <option value="library">도서관</option>
+                    <option value="court">재판소</option>
+                    <option value="court_trial">재판소 (심문)</option>
+                    <option value="flower">꽃밭</option>
+                    <option value="lakeside_1">호숫가 (낮)</option>
+                    <option value="lakeside_2">호숫가 (밤)</option>
+                    <option value="wall">담장</option>
+                    <option value="house_1">저택 전경 (낮)</option>
+                    <option value="house_2">저택 전경 (밤)</option>
+                    <option value="sewer">지하 수로</option>
+                    <option value="punishment">징벌방</option>
+                    <option value="guest1">게스트하우스 전경 (낮)</option>
+                    <option value="guest2">게스트하우스 전경 (밤)</option>
+                    <option value="guestburn">게스트하우스 전경 (화재)</option>
+                    <option value="guestafter">게스트하우스 전경 (사건 후)</option>
+                    <option value="guest_interior_1">게스트하우스 내부 1</option>
+                    <option value="guest_interior_2">게스트하우스 내부 2</option>
+                    <option value="guest_interior_3">게스트하우스 내부 3</option>
+                    <option value="guest_interior_4">게스트하우스 내부 4</option>
+                    <option value="guest_interior_5">게스트하우스 내부 5</option>
+                    <option value="guest_interior_night_1">게스트하우스 내부 1 (밤)</option>
+                    <option value="guest_interior_night_2">게스트하우스 내부 2 (밤)</option>
+                    <option value="guest_interior_night_3">게스트하우스 내부 3 (밤)</option>
+                    <option value="stock1">창고 1</option>
+                    <option value="stock2">창고 2</option>
+                    <option value="secret1">비밀 연구실 1</option>
+                    <option value="secret2">비밀 연구실 2</option>
+                    <option value="secret3">비밀 연구실 3</option>
+                    <option value="incineration">소각로</option>
+                    <option value="garden_1">안뜰 (낮)</option>
+                    <option value="garden_2">안뜰 (밤)</option>
+                    <option value="atelier_1">아틀리에 (낮)</option>
+                    <option value="atelier_2">아틀리에 (밤)</option>
+                    <option value="shower_1">샤워실 1</option>
+                    <option value="shower_2">샤워실 2</option>
+                    <option value="elevator_1">엘리베이터 1</option>
+                    <option value="elevator_2">엘리베이터 2</option>
+                    <option value="elevator_3">엘리베이터 3</option>
+                    <option value="elevator_4">엘리베이터 4</option>
+                    <option value="elevator_5">엘리베이터 5</option>
+                    <option value="sky">하늘</option>
+                    <option value="starry">밤하늘</option>
+                    <option value="unknown">???</option>
+                </select>
+            </div>
+            <div class="control-group">
+                <label>캐릭터 배치 (Max 3) <button class="add-btn" onclick="addInvCharacter()">+ 추가</button></label>
+                <div id="inv-char-controls"></div>
+            </div>
+            <div class="control-group">
+                <label>대사 설정</label>
+                <label style="font-size: 12px; color:#aaa;">화자 선택</label>
+                <select id="inv-name-select" onchange="handleInvNameChange()"></select>
+                <div id="inv-custom-name-area" class="hidden">
+                    <input type="text" id="inv-custom-name" placeholder="이름 입력" oninput="updateInvText()">
+                    <input type="color" id="inv-custom-color" value="#ffcc00" oninput="updateInvText()">
+                </div>
+                <textarea id="inv-input-text" rows="4" oninput="updateInvText()" placeholder="대사 입력">컁!?</textarea>
+            </div>
+        </div>
+
+        <div id="toolbox-interrogation" class="toolbox-content hidden">
+            <div class="control-group">
+                <label>화면 연출 (Direction)</label>
+                <select id="int-angle-select" onchange="updateInterrogation()">
+                    <option value="tilt-left">좌측 기울기 (Left Tilted)</option>
+                    <option value="tilt-center" selected>정방향 (Center)</option>
+                    <option value="tilt-right">우측 기울기 (Right Tilted)</option>
+                </select>
+                <select id="int-bg-select" onchange="updateInterrogation()" style="margin-top:5px;">
+                    <option value="court_trial">재판소 (심문)</option>
+                </select>
+            </div>
+
+            <div class="control-group">
+                <label>캐릭터 설정</label>
+                <select id="int-char-select" onchange="updateInterrogation()"><option value="none">없음</option></select>
+                <select id="int-char-pos" onchange="updateInterrogation()">
+                    <option value="flex-start">왼쪽 (Left)</option>
+                    <option value="center" selected>중앙 (Center)</option>
+                    <option value="flex-end">오른쪽 (Right)</option>
+                </select>
+            </div>
+
+            <div class="control-group">
+                <label>증거품 (Evidence)</label>
+                <select id="int-evidence-select" onchange="updateInterrogation()">
+                    <option value="none">표시 안 함</option>
+                    <option value="ev_knife">증거 1</option>
+                    <option value="ev_photo">증거 2</option>
+                </select>
+                <select id="int-evidence-pos" onchange="updateInterrogation()">
+                    <option value="left">좌상단 (Top-Left)</option>
+                    <option value="right" selected>우상단 (Top-Right)</option>
+                </select>
+            </div>
+
+            <div class="control-group">
+                <label>심문 대사 설정</label>
+                <textarea id="int-input-text" rows="4" oninput="updateInterrogation()" placeholder="대사 입력. &lt;red&gt;강조&lt;/red&gt; 사용 가능">병을 구우면 &lt;red&gt;구운 병&lt;/red&gt;이 돼!</textarea>
+                
+                <div style="margin-top:10px;">
+                    <label style="font-size:12px; display:flex; justify-content:space-between;">
+                        글자 크기 (Font Size) 
+                        <span id="font-size-display">52px</span>
+                    </label>
+                    <input type="range" id="int-font-size" min="30" max="120" value="52" oninput="updateInterrogation()">
+                </div>
+
+                <label style="font-size:12px; color:#aaa; margin-top:10px;">정렬 (Align)</label>
+                <select id="int-text-align" onchange="updateInterrogation()">
+                    <option value="left" selected>왼쪽 정렬 (Left)</option>
+                    <option value="center">가운데 정렬 (Center)</option>
+                    <option value="right">오른쪽 정렬 (Right)</option>
+                </select>
+                
+                <p class="hint-text">* 텍스트를 마우스로 드래그해서 위치를 옮길 수 있습니다.</p>
+                <button onclick="resetTextPosition()" style="margin-top:10px; width:auto; font-size:12px;">↺ 텍스트 위치 초기화</button>
+            </div>
+        </div>
+
+        <button class="capture-btn" onclick="captureScreen()">📷 현재 화면 저장</button>
+    </div>
+
+    <script>
+        const bgData = {
+            'cell_1': './img/bg/01_cell.png',
+            'cell_2': './img/bg/01_cell_narehate.png',
+            'cell_corridor': './img/bg/02_cell_corridor.png',
+            'punish_corridor_1': './img/bg/03_punish_corridor_1.png',
+            'punish_corridor_2': './img/bg/03_punish_corridor_2.png',
+            'hall': './img/bg/04_hall.png',
+            'lounge_1': './img/bg/05_lounge_1.png',
+            'lounge_2': './img/bg/05_lounge_2.png',
+            'dining': './img/bg/06_dining.png',
+            'infirmary_1': './img/bg/07_infirmary_day.png',
+            'infirmary_2': './img/bg/07_infirmary_night.png',
+            'trial_corridor_1': './img/bg/08_trial_corridor_day.png',
+            'trial_corridor_2': './img/bg/08_trial_corridor_night.png',
+            'stair': './img/bg/09_stair.png',
+            'entertainment_room': './img/bg/10_entertainment_room.png',
+            'library': './img/bg/11_library.png',
+            'court': './img/bg/12_court_overview.png',
+            'court_trial': './img/bg/13_court_trial.png',
+            'flower': './img/bg/14_flowerfield.png',
+            'lakeside_1': './img/bg/15_lakeside_day.png',
+            'lakeside_2': './img/bg/15_lakeside_night.png',
+            'wall': './img/bg/16_wall.png',
+            'house_1': './img/bg/17_house_overview_day.png',
+            'house_2': './img/bg/17_house_overview_night.png',
+            'sewer': './img/bg/18_sewer.png',
+            'punishment': './img/bg/19_punishment_room.png',
+            'guest1': './img/bg/20_guesthouse_day.png',
+            'guest2': './img/bg/20_guesthouse_night.png',
+            'guestburn': './img/bg/21_guesthouse_burn.png',
+            'guestafter': './img/bg/21_guesthouse_burn_after.png',
+            'guest_interior_1': './img/bg/22_guest_interior_day_1.png',
+            'guest_interior_2': './img/bg/22_guest_interior_day_2.png',
+            'guest_interior_3': './img/bg/22_guest_interior_day_3.png',
+            'guest_interior_4': './img/bg/22_guest_interior_day_4.png',
+            'guest_interior_5': './img/bg/22_guest_interior_day_5.png',
+            'guest_interior_night_1': './img/bg/22_guest_interior_night_1.png',
+            'guest_interior_night_2': './img/bg/22_guest_interior_night_2.png',
+            'guest_interior_night_3': './img/bg/22_guest_interior_night_3.png',
+            'stock1': './img/bg/23_stock_1.png',
+            'stock2': './img/bg/23_stock_2.png',
+            'secret1': './img/bg/24_secret_1.png',
+            'secret2': './img/bg/24_secret_2.png',
+            'secret3': './img/bg/24_secret_3.png',
+            'incineration': './img/bg/24_secret_4.png',
+            'garden_1': './img/bg/25_garden_day.png',
+            'garden_2': './img/bg/25_garden_night.png',
+            'atelier_1': './img/bg/26_atelier_day.png',
+            'atelier_2': './img/bg/26_atelier_night.png',
+            'shower_1': './img/bg/27_shower_1.png',
+            'shower_2': './img/bg/27_shower_2.png',
+            'elevator_1': './img/bg/28_elevator_1.png',
+            'elevator_2': './img/bg/28_elevator_2.png',
+            'elevator_3': './img/bg/28_elevator_3.png',
+            'elevator_4': './img/bg/28_elevator_4.png',
+            'elevator_5': './img/bg/28_elevator_5.png',
+            'sky': './img/bg/29_sky.png',
+            'starry': './img/bg/30_starry.png',
+            'unknown': './img/bg/31_unknown.png'
+        };
+
+        const charData = {
+            'ema': { name: '사쿠라바 에마', color: '#FFC0CB', src: './img/char/ema_sample_1.png' },
+            'hiro': { name: '니카이도 히로', color: '#BB2647', src: './img/char/hiro_sample_1.png' },
+            'anan': { name: '나츠메 안안', color: '#6C71B5', src: './img/char/anan_sample_1.png' },
+            'noah': { name: '죠가사키 노아', color: '#DFE9ED', src: './img/char/noah_sample_1.png' },
+            'leia': { name: '하스미 레이아', color: '#F5DEB3', src: './img/char/leia_sample_1.png' },
+            'miria': { name: '사에키 미리아', color: '#DEB887', src: './img/char/miria_sample_1.png' },
+            'margo': { name: '호쇼 마고', color: '#BA55D3', src: './img/char/margo_sample_1.png' },
+            'nanoka': { name: '쿠로베 나노카', color: '#C0C0C0', src: './img/char/nanoka_sample_1.png' },
+            'alisa': { name: '시토 아리사', color: '#B22222', src: './img/char/alisa_sample_1.png' },
+            'sherry': { name: '타치바나 셰리', color: '#B0C4DE', src: './img/char/sherry_sample_1.png' },
+            'hanna': { name: '토도 한나', color: '#ABD664', src: './img/char/hanna_sample_1.png' },
+            'coco': { name: '사와타리 코코', color: '#F2773D', src: './img/char/coco_sample_1.png' },
+            'meruru': { name: '히카미 메루루', color: '#B7B3Bd', src: './img/char/meruru_sample_1.png' },
+            'gokucho': { name: '고쿠쵸', color: '#800080', src: './img/char/gokucho_sample_1.png' },
+            'narehate': { name: '나레하테', color: '#555555', src: './img/char/narehate_sample_1.png' },
+            'ievilJIO': { name: '츠키시로 유키', color: '#FFFFFF', src: './img/char/yuki_sample_1.png' }
+        
+        };
+
+        const evidenceData = {
+            'ev_knife': 'img/ev/sample1.png',
+            'ev_photo': 'img/ev/sample2.png'
+        };
+
+        let currentMode = 'investigation';
+        let invCharacters = []; 
+        let textPos = { x: 0, y: 0 }; 
+
+        function init() {
+            addInvCharacter('ema');
+            const intCharSelect = document.getElementById('int-char-select');
+            Object.keys(charData).forEach(key => {
+                const opt = document.createElement('option');
+                opt.value = key; opt.text = charData[key].name;
+                intCharSelect.appendChild(opt);
+            });
+            intCharSelect.value = 'ema';
+
+            updateInvestigation();
+            updateInterrogation();
+            
+            document.querySelectorAll('img').forEach(img => img.crossOrigin = "Anonymous");
+            initDraggableText();
+        }
+
+        function switchMode(mode) {
+            currentMode = mode;
+            document.getElementById('tab-inv').className = mode === 'investigation' ? 'tab-btn active' : 'tab-btn';
+            document.getElementById('tab-int').className = mode === 'interrogation' ? 'tab-btn active' : 'tab-btn';
+            if(mode === 'investigation') {
+                document.getElementById('toolbox-investigation').classList.remove('hidden');
+                document.getElementById('toolbox-interrogation').classList.add('hidden');
+                document.getElementById('investigation-scene').classList.remove('hidden');
+                document.getElementById('interrogation-scene').classList.add('hidden');
+            } else {
+                document.getElementById('toolbox-investigation').classList.add('hidden');
+                document.getElementById('toolbox-interrogation').classList.remove('hidden');
+                document.getElementById('investigation-scene').classList.add('hidden');
+                document.getElementById('interrogation-scene').classList.remove('hidden');
+            }
+        }
+
+
+        function updateInvestigation() {
+            const bgVal = document.getElementById('inv-bg-select').value;
+            const bgImg = document.getElementById('inv-bg-layer');
+            bgImg.src = bgData[bgVal];
+            updateInvText();
+        }
+        function addInvCharacter(type = 'ema') {
+            if (invCharacters.length >= 3) return alert("Max 3");
+            const id = Date.now();
+            invCharacters.push({ id, type, active: true });
+            renderInvCharacters(); renderInvControls(); updateInvNameDropdown();
+        }
+        function removeInvCharacter(id) {
+            invCharacters = invCharacters.filter(c => c.id !== id);
+            renderInvCharacters(); renderInvControls(); updateInvNameDropdown();
+        }
+        function updateInvCharData(id, key, value) {
+            const char = invCharacters.find(c => c.id === id);
+            if(char) { char[key] = value; renderInvCharacters(); if(key==='type') updateInvNameDropdown(); }
+        }
+        function renderInvCharacters() {
+            const container = document.getElementById('inv-char-layer');
+            container.innerHTML = '';
+            if (invCharacters.length === 1) container.style.justifyContent = 'center';
+            else if (invCharacters.length === 2) container.style.justifyContent = 'space-around';
+            else if (invCharacters.length === 3) container.style.justifyContent = 'space-between';
+            invCharacters.forEach(char => {
+                const img = document.createElement('img');
+                img.crossOrigin = "Anonymous"; img.src = charData[char.type].src;
+                img.className = 'character'; if(!char.active) img.classList.add('dimmed');
+                container.appendChild(img);
+            });
+        }
+        function renderInvControls() {
+            const container = document.getElementById('inv-char-controls');
+            container.innerHTML = '';
+            invCharacters.forEach((char, idx) => {
+                const div = document.createElement('div');
+                div.className = 'char-item-ui';
+                div.innerHTML = `
+                    <div style="display:flex;justify-content:space-between;margin-bottom:5px;"><span>#${idx+1}</span><button class="remove-btn" onclick="removeInvCharacter(${char.id})">X</button></div>
+                    <select onchange="updateInvCharData(${char.id}, 'type', this.value)">
+                        ${Object.keys(charData).map(key => `<option value="${key}" ${char.type===key?'selected':''}>${charData[key].name}</option>`).join('')}
+                    </select>
+                    <div class="checkbox-wrapper"><input type="checkbox" ${char.active?'checked':''} onchange="updateInvCharData(${char.id}, 'active', this.checked)"><label>하이라이트</label></div>`;
+                container.appendChild(div);
+            });
+        }
+        function updateInvNameDropdown() {
+            const select = document.getElementById('inv-name-select');
+            const prev = select.value; select.innerHTML = '';
+            invCharacters.forEach(char => {
+                const data = charData[char.type];
+                const opt = document.createElement('option');
+                opt.value = `char_${char.id}`; opt.text = data.name;
+                opt.dataset.name = data.name; opt.dataset.color = data.color;
+                select.appendChild(opt);
+            });
+            select.appendChild(new Option('???', 'unknown'));
+            select.querySelector('option[value="unknown"]').dataset.name = "???";
+            select.querySelector('option[value="unknown"]').dataset.color = "#ccc";
+            select.appendChild(new Option('[ 직접 입력 ]', 'custom'));
+            if(prev && [...select.options].some(o=>o.value===prev)) select.value = prev;
+            else if(invCharacters.length>0) select.selectedIndex=0;
+            handleInvNameChange();
+        }
+        function handleInvNameChange() {
+            const val = document.getElementById('inv-name-select').value;
+            const customArea = document.getElementById('inv-custom-name-area');
+            if (val === 'custom') customArea.classList.remove('hidden'); else customArea.classList.add('hidden');
+            updateInvText();
+        }
+        function updateInvText() {
+            document.getElementById('inv-disp-text').innerText = document.getElementById('inv-input-text').value;
+            const select = document.getElementById('inv-name-select');
+            const nameBox = document.getElementById('inv-disp-name');
+            let nameStr = "", colorCode = "#fff";
+            if (select.value === 'custom') {
+                nameStr = document.getElementById('inv-custom-name').value;
+                colorCode = document.getElementById('inv-custom-color').value;
+            } else {
+                const opt = select.options[select.selectedIndex];
+                if(opt) { nameStr = opt.dataset.name; colorCode = opt.dataset.color; }
+            }
+            if (!nameStr) { nameBox.style.display = 'none'; return; }
+            nameBox.style.display = 'block'; nameBox.style.borderLeftColor = colorCode;
+            const parts = nameStr.split(' ');
+            nameBox.innerHTML = parts.map((p, i) => {
+                if(!p) return '';
+                const style = (i === 0) ? `color:${colorCode}` : 'color:#fff';
+                return `<span class="highlight-char" style="${style}">${p.charAt(0)}</span>${p.slice(1)}`;
+            }).join(' ');
+        }
+
+
+        function updateInterrogation() {
+            const wrapper = document.getElementById('int-tilt-wrapper');
+            const bgImg = document.getElementById('int-bg-layer');
+            const charLayer = document.getElementById('int-char-layer');
+            const charImg = document.getElementById('int-disp-char');
+            
+            wrapper.className = document.getElementById('int-angle-select').value;
+            bgImg.src = bgData[document.getElementById('int-bg-select').value];
+
+            const charVal = document.getElementById('int-char-select').value;
+            if (charVal === 'none') { charImg.style.display = 'none'; }
+            else { charImg.style.display = 'block'; charImg.src = charData[charVal].src; }
+
+            charLayer.style.justifyContent = document.getElementById('int-char-pos').value;
+
+            const fontSize = document.getElementById('int-font-size').value;
+            document.getElementById('font-size-display').innerText = `${fontSize}px`;
+
+            updateEvidence();
+            updateInterrogationText();
+        }
+
+        function updateEvidence() {
+            let evidenceLayer = document.getElementById('int-evidence-layer');
+            if (!evidenceLayer) {
+                const wrapper = document.getElementById('int-tilt-wrapper');
+                evidenceLayer = document.createElement('div');
+                evidenceLayer.id = 'int-evidence-layer';
+                wrapper.appendChild(evidenceLayer);
+            }
+            evidenceLayer.innerHTML = '';
+            const eviVal = document.getElementById('int-evidence-select').value;
+            if (eviVal === 'none') return;
+
+            const img = document.createElement('img');
+            img.src = evidenceData[eviVal] || ''; img.className = 'evidence-img'; img.crossOrigin = "Anonymous";
+            const pos = document.getElementById('int-evidence-pos').value;
+            if (pos === 'left') { img.style.left = '50px'; img.style.right = 'auto'; }
+            else { img.style.left = 'auto'; img.style.right = '50px'; }
+            evidenceLayer.appendChild(img);
+        }
+
+        function updateInterrogationText() {
+            let textLayer = document.getElementById('int-text-layer');
+            if (!textLayer) {
+                const wrapper = document.getElementById('int-tilt-wrapper');
+                textLayer = document.createElement('div');
+                textLayer.id = 'int-text-layer';
+                wrapper.appendChild(textLayer);
+                initDraggableText(); 
+            }
+
+            const rawText = document.getElementById('int-input-text').value;
+            const fontSize = document.getElementById('int-font-size').value;
+            const align = document.getElementById('int-text-align').value;
+
+            textLayer.style.textAlign = align;
+            if(align === 'left') textLayer.style.alignItems = 'flex-start';
+            else if(align === 'center') textLayer.style.alignItems = 'center';
+            else if(align === 'right') textLayer.style.alignItems = 'flex-end';
+
+            const parsedText = rawText
+                .replace(/</g, "&lt;").replace(/>/g, "&gt;")
+                .replace(/&lt;red&gt;(.*?)&lt;\/red&gt;/gi, '<span class="text-highlight-red">$1</span>');
+            
+            textLayer.innerHTML = `<div class="int-text" style="font-size:${fontSize}px">${parsedText}</div>`;
+        }
+
+        let isDragging = false;
+        let dragOffset = { x: 0, y: 0 };
+
+        function initDraggableText() {
+            setTimeout(() => {
+                const el = document.getElementById('int-text-layer');
+                if(!el) return;
+                el.addEventListener('mousedown', startDrag);
+                window.addEventListener('mouseup', stopDrag);
+                window.addEventListener('mousemove', doDrag);
+            }, 100);
+        }
+        function startDrag(e) {
+            isDragging = true;
+            dragOffset.x = e.clientX;
+            dragOffset.y = e.clientY;
+        }
+        function stopDrag() { isDragging = false; }
+        function doDrag(e) {
+            if (!isDragging) return;
+            const el = document.getElementById('int-text-layer');
+            const dx = e.clientX - dragOffset.x;
+            const dy = e.clientY - dragOffset.y;
+            textPos.x += dx; textPos.y += dy;
+            el.style.transform = `translate(calc(-50% + ${textPos.x}px), calc(-50% + ${textPos.y}px))`;
+            dragOffset.x = e.clientX; dragOffset.y = e.clientY;
+        }
+        function resetTextPosition() {
+            textPos = { x: 0, y: 0 };
+            const el = document.getElementById('int-text-layer');
+            if(el) el.style.transform = `translate(-50%, -50%)`;
+        }
+
+        function captureScreen() {
+            const screen = document.getElementById('game-screen');
+            html2canvas(screen, { scale: 1, useCORS: true, allowTaint: false })
+            .then(canvas => {
+                const link = document.createElement('a');
+                link.download = `witch_trial_${currentMode}.png`;
+                link.href = canvas.toDataURL();
+                link.click();
+            })
+            .catch(err => alert("Capture Error: Live Server Required"));
+        }
+
+        init();
+    </script>
+</body>
+</html>
